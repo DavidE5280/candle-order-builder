@@ -17,6 +17,8 @@
   "dependencies": {
     "@mondaycom/apps-sdk": "^2.1.2",
     "@vibe/core": "^3.19.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "monday-sdk-js": "^0.5.5"
   },
   "eslintConfig": {

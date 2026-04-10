@@ -1,34 +1,132 @@
-import React, { useState } from "react";
-import { TextField, Dropdown, Button, Divider, Icon } from "@vibe/core";
+import React, { useState, useEffect } from "react";
+import { TextField, Dropdown, Button, Divider, Icon, Toast } from "@vibe/core";
 import { Filter } from "@vibe/icons";
+import mondaySdk from "monday-sdk-js";
+
 import "./OrderMaker.css";
 
-const fragranceOptions = [
-  { value: "herbaceous", label: "Herbaceous" },
-  { value: "fruity", label: "Fruity" },
-  { value: "fresh", label: "Fresh" },
-  { value: "woody", label: "Woody" },
-  { value: "floral", label: "Floral" },
-];
+const monday = mondaySdk();
 
 export default function OrderMaker() {
+  const [addingOrder, setAddingOrder] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [quantity, setQuantity] = useState(undefined);
-  const [fragrances, setFragrances] = useState([]);
+  const [selectedFragrances, setSelectedFragrances] = useState([]);
+  const [fragranceOptions, setFragranceOptions] = useState([]);
   const [fragranceDropdownTouched, setFragranceDropdownTouched] =
     useState(false);
+  const [toastOpen, setToastOpen] = useState(false);
+
+  const showSuccessToast = () => {
+    setToastOpen(true);
+    setTimeout(() => {
+      setToastOpen(false);
+    }, 3000);
+  };
+
+  const resetForm = () => {
+    setFirstName("");
+    setLastName("");
+    setQuantity(undefined);
+    setSelectedFragrances([]);
+    setFragranceDropdownTouched(false);
+  };
 
   const onFragrancesChange = (values) => {
     if (!fragranceDropdownTouched) {
       setFragranceDropdownTouched(true);
     }
-    setFragrances(values);
+    setSelectedFragrances(values);
   };
 
-  const hasInvalidFragranceCount = fragrances && fragrances.length !== 3;
+  const getBoardColumns = async () => {
+    const query = `
+    query {
+      boards(ids: 18408011119) {
+        id
+        name
+        columns {
+          id
+          title
+          type
+        }
+      }
+    }
+  `;
+
+    const response = await monday.api(query);
+    console.log("BOARD COLUMNS:", response);
+  };
+
+  const handleSubmit = async () => {
+    if (!isFormValid) return;
+    setAddingOrder(true);
+    const itemName = `Order - ${firstName} ${lastName}`.trim();
+    const boardId = 18408011119;
+    const query = `
+    mutation ($boardId: ID!, $itemName: String!) {
+      create_item(
+        board_id: $boardId,
+        item_name: $itemName
+      ) {
+        id
+      }
+    }
+  `;
+
+    const response = await monday.api(query, {
+      variables: {
+        boardId,
+        itemName,
+      },
+    });
+
+    if (response.data.create_item) {
+      setAddingOrder(false);
+      resetForm();
+      showSuccessToast();
+    }
+  };
+
+  useEffect(() => {
+    monday.listen("context", (res) => {
+      // console.log("FULL CONTEXT RESPONSE:", res);
+      getBoardColumns();
+    });
+  }, []);
+
+  useEffect(() => {
+    const fetchFragrances = async () => {
+      try {
+        const response = await fetch("api/fragrances");
+        const data = await response.json();
+        const fragranceOptions = data.map((fragrance) => ({
+          value: fragrance.id,
+          label: fragrance.name,
+        }));
+        setFragranceOptions(fragranceOptions);
+      } catch (error) {
+        console.error("Error fetching fragrances:", error);
+      }
+    };
+    fetchFragrances();
+  }, []);
+
+  const hasInvalidFragranceCount =
+    selectedFragrances && selectedFragrances.length !== 3;
+  const isFormValid =
+    firstName && lastName && quantity > 0 && !hasInvalidFragranceCount;
+
   return (
     <div className="order-maker">
+      <Toast
+        open={toastOpen}
+        type="positive"
+        className="order-maker__toast--success"
+      >
+        Order started!
+      </Toast>
       <div className="order-maker__card">
         <div className="order-maker__title-container">
           <h2 className="order-maker__title">
@@ -71,7 +169,7 @@ export default function OrderMaker() {
                 requiredErrorText="Required"
                 id="quantity"
                 title="Quantity*"
-                placeholder="1"
+                placeholder="0"
                 size="medium"
                 onChange={setQuantity}
                 value={quantity}
@@ -87,14 +185,20 @@ export default function OrderMaker() {
                 multi
                 options={fragranceOptions}
                 onChange={onFragrancesChange}
-                value={fragrances}
-                error={"ERROR"}
+                value={selectedFragrances}
               />
             </div>
           </div>
 
           <div className="order-maker__actions">
-            <Button size="medium">Start Order</Button>
+            <Button
+              size="medium"
+              onClick={handleSubmit}
+              disabled={!isFormValid}
+              loading={addingOrder}
+            >
+              Start Order
+            </Button>
           </div>
         </div>
       </div>
