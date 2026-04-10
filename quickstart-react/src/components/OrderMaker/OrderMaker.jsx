@@ -2,12 +2,14 @@ import React, { useState, useEffect } from "react";
 import { TextField, Dropdown, Button, Divider, Icon, Toast } from "@vibe/core";
 import { Filter } from "@vibe/icons";
 import mondaySdk from "monday-sdk-js";
-
+import { fetchFragrances } from "../../api/fragrances";
+import { createOrder } from "../../api/monday";
 import "./OrderMaker.css";
 
 const monday = mondaySdk();
 
 export default function OrderMaker() {
+  const [boardId, setBoardId] = useState(undefined);
   const [addingOrder, setAddingOrder] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -40,68 +42,35 @@ export default function OrderMaker() {
     setSelectedFragrances(values);
   };
 
-  const getBoardColumns = async () => {
-    const query = `
-    query {
-      boards(ids: 18408011119) {
-        id
-        name
-        columns {
-          id
-          title
-          type
-        }
-      }
-    }
-  `;
-
-    const response = await monday.api(query);
-    console.log("BOARD COLUMNS:", response);
-  };
-
   const handleSubmit = async () => {
-    if (!isFormValid) return;
+    if (!isFormValid || !boardId) return;
     setAddingOrder(true);
     const itemName = `Order - ${firstName} ${lastName}`.trim();
-    const boardId = 18408011119;
-    const query = `
-    mutation ($boardId: ID!, $itemName: String!) {
-      create_item(
-        board_id: $boardId,
-        item_name: $itemName
-      ) {
-        id
+
+    try {
+      const response = await createOrder(boardId, itemName);
+      if (response.id) {
+        resetForm();
+        showSuccessToast();
       }
-    }
-  `;
-
-    const response = await monday.api(query, {
-      variables: {
-        boardId,
-        itemName,
-      },
-    });
-
-    if (response.data.create_item) {
+    } catch (error) {
+      console.error("Error creating order:", error);
+    } finally {
       setAddingOrder(false);
-      resetForm();
-      showSuccessToast();
     }
   };
 
   useEffect(() => {
     monday.listen("context", (res) => {
-      // console.log("FULL CONTEXT RESPONSE:", res);
-      getBoardColumns();
+      setBoardId(res.data.boardId);
     });
   }, []);
 
   useEffect(() => {
-    const fetchFragrances = async () => {
+    const getFragrances = async () => {
       try {
-        const response = await fetch("api/fragrances");
-        const data = await response.json();
-        const fragranceOptions = data.map((fragrance) => ({
+        const fragrances = await fetchFragrances();
+        const fragranceOptions = fragrances.map((fragrance) => ({
           value: fragrance.id,
           label: fragrance.name,
         }));
@@ -110,13 +79,15 @@ export default function OrderMaker() {
         console.error("Error fetching fragrances:", error);
       }
     };
-    fetchFragrances();
+    getFragrances();
   }, []);
 
-  const hasInvalidFragranceCount =
-    selectedFragrances && selectedFragrances.length !== 3;
+  const hasInvalidFragranceCount = selectedFragrances.length !== 3;
   const isFormValid =
-    firstName && lastName && quantity > 0 && !hasInvalidFragranceCount;
+    firstName.trim() &&
+    lastName.trim() &&
+    quantity > 0 &&
+    !hasInvalidFragranceCount;
 
   return (
     <div className="order-maker">
@@ -127,14 +98,14 @@ export default function OrderMaker() {
       >
         Order started!
       </Toast>
+
       <div className="order-maker__card">
-        <div className="order-maker__title-container">
-          <h2 className="order-maker__title">
-            Order Maker
-            <Icon className="order-maker_title-icon" icon={Filter} />
-          </h2>
-        </div>
+        <h2 className="order-maker__title">
+          Order Maker
+          <Icon className="order-maker__title-icon" icon={Filter} />
+        </h2>
         <Divider />
+
         <div className="order-maker__form">
           <div className="order-maker__row">
             <div className="order-maker__field order-maker__field--name">
@@ -171,7 +142,7 @@ export default function OrderMaker() {
                 title="Quantity*"
                 placeholder="0"
                 size="medium"
-                onChange={setQuantity}
+                onChange={(quantity) => setQuantity(Number(quantity))}
                 value={quantity}
               />
             </div>
