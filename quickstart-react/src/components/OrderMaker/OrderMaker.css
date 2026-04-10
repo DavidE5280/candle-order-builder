@@ -64,7 +64,7 @@
 }
 
 .order-maker__dropdown--error {
-  border: 1px solid #d83a52 !important;
+  border: 1px solid #d83a52 !important; /* override Vibe component styles to ensure consistent error state */
 }
 
 .order-maker__actions {
