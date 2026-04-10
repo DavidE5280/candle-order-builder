@@ -1,43 +1,77 @@
-## Overview
-This is the "Quickstart React" example Monday app. 
-<br>It can be used as a board view or dashboard widget, connected to a board and render data from the board using settings.
+# Candle Order Builder
 
-<br>This app demonstrates how to use: 
-- [settings](https://developer.monday.com/apps/docs/mondayget#requesting-context-and-settings-data) 
-- [context](https://developer.monday.com/apps/docs/mondayget#sample-context-objects-for-each-feature-type) 
-- [API](https://developer.monday.com/apps/docs/mondayapi)
+This is a simple monday.com app that allows users to create candle orders directly from a board view.
 
-<br>You can find more info in our Quickstart guide [here](https://developer.monday.com/apps/docs/quickstart-view)
-<br /> ![Screenshot](https://dapulse-res.cloudinary.com/image/upload/w_900/v1591485466/remote_mondaycom_static/developers/screenshots/final_view.gif)
+The app collects basic order information, validates the input, and creates a new item in the connected monday board. The app uses the current board context automatically, so no configuration is required once installed.
 
-## Install dependencies
+## What it does
 
-In the project directory, run:
+Users can:
 
-### `npm install`
+- Enter first name, last name, and quantity
+- Select exactly 3 fragrances
+- Submit the form to create a new order in monday
 
-Start the app locally using:
+Fragrance options are fetched from a small backend API and displayed in a multi-select dropdown.
 
-### `npm start`
+## Tech
 
-Find the provided URL in your terminal. This is your public URL, and you can use it to test your application.
-Example: https://abcd12345.apps-tunnel.monday.app
+Frontend
+React
+monday SDK
+Vibe components
 
-## Deploy your app
+Backend
+Express
+In-memory data store for fragrances
 
-Deploy the app with: 
+## Running locally
 
-### `npm run deploy`
+Start the backend:
 
-Follow the prompts to select the app and version to connect your deployment to. 
+cd server
+node index.js
 
-## Configure app in the monday UI
+Start the frontend:
 
-1. Open monday.com, login to your account and go to the "Developers" section.
-2. Create a new "Quickstart View Example App"
-3. Open "OAuth & Permissions" section and add "boards:read" scope
-4. Open "Build > Features" section and create a new "Board View" feature
-5. Select a deployment type:
-    If testing locally: Select "External hosting", then paste your tunnel URL
-    If deployed: Select "Client-side code via CLI". Leave the subroute field empty. 
-6. Open a board, and then add your "Quickstart view example app" view!
+cd quickstart-react
+npm run start
+
+Make sure the monday tunnel is running so the app can render inside the board view.
+
+## Running inside monday.com
+
+To test the app inside monday:
+
+1. Create a new app in monday.com developer center
+2. Add a Board View feature
+3. Run the frontend locally (`npm run start`)
+4. When prompted, provide your monday API token to open the tunnel
+5. Install the app on a board and open the board view
+
+The app will load inside the board and allow order creation.
+
+## Notes and tradeoffs
+
+There were a few areas where requirements were unclear or intentionally open-ended.
+
+Fragrance data
+The prompt provided a schema but no backend or persistence strategy. I chose to implement a simple Express API with in-memory storage to support full CRUD operations and simulate a real data source.
+
+CORS and local development
+Because the app runs inside a monday iframe, requests to localhost were blocked. This was resolved using a Vite proxy to route /api requests to the backend.
+
+Form validation
+The requirement to select exactly 3 fragrances created an interesting UX decision. Instead of blocking selection, the form allows users to choose freely and enforces the constraint at submission time, while also visually indicating an error state.
+
+Inscription column
+The role of the inscription field in the provided board was ambiguous. Based on the description, it appears to be something handled later in the workflow rather than during order creation. I chose not to populate it automatically.
+
+## Future improvements
+
+If this were productionized:
+
+- Persist fragrance data in a database
+- Map form fields to specific monday columns instead of only setting the item name
+- Add loading and error states for API calls
+- Add tests for API routes and form behavior
